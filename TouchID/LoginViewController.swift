@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import LocalAuthentication
 
 class LoginViewController: UIViewController {
 
@@ -30,7 +31,8 @@ class LoginViewController: UIViewController {
         blurEffectView.frame = view.bounds
         backgroundImageView.addSubview(blurEffectView)
         
-        showLoginDialog()
+        loginView.isHidden = true
+        authenticateWithTouchID()
 
     }
 
@@ -53,5 +55,75 @@ class LoginViewController: UIViewController {
         }, completion: nil)
         
     }
+    
+    func authenticateWithTouchID() {
+        //Get the local authentication context
+        let localAuthContext = LAContext()
+        let reasonText = "Authentication is requared to sign in"
+        
+        var authError: NSError?
+        if !localAuthContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) {
+            if let error = authError {
+                print(error.localizedDescription)
+            }
+            
+            //Display the login dialog when Touch ID is not available
+            showLoginDialog()
+            return
+        }
+        
+        //Perform the Touch ID authentication
+        localAuthContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reasonText) { (success, error) in
+            
+            //Failure workflow
+            if !success {
+                if let error = error {
+                    switch error {
+                    case LAError.authenticationFailed:
+                        print("Authentication failed")
+                    case LAError.passcodeNotSet:
+                        print("Passcode not set")
+                    case LAError.systemCancel:
+                        print("Authentication wasa canceled by system")
+                    case LAError.userCancel:
+                        print("Authentication was canceled by the user")
+                    case LAError.touchIDNotEnrolled:
+                        print("Authentication could not start because Touch ID has no enrolled fingers.")
+                    case LAError.touchIDNotAvailable:
+                        print("Authentication could not start because Touch ID is not available.")
+                    case LAError.userFallback:
+                        print("User tapped the fallback button (Enter Password).")
+                    default:
+                        print(error.localizedDescription)
+                    }
+                }
+                
+                //Fallback to password authentication
+                OperationQueue.main.addOperation({
+                    self.showLoginDialog()
+                })
+            } else {
+                //Success workflow
+                print("Successtully authenticated")
+                OperationQueue.main.addOperation({
+                    self.performSegue(withIdentifier: "showHomeScreen", sender: nil)
+                })
+            }    
+            
+        }
+    }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
